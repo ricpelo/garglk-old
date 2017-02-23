@@ -52,6 +52,8 @@ static char *cliptext = NULL;
 static int cliplen = 0;
 enum clipsource { PRIMARY , CLIPBOARD };
 
+static int pulsado_release = TRUE;
+
 /* filters for file dialogs */
 static char *winfilternames[] =
 {
@@ -71,6 +73,41 @@ static int timeout(void *data)
 {
     timeouts = 1;
     return TRUE;
+}
+
+void glk_mplayer(char *video)
+{
+    char *argumentos[] = { "mplayer", "-vo", "sdl", "-fs", "-nofontconfig", video, NULL };
+    int pid, status;
+
+    pid = fork();
+
+    switch (pid) {
+        case -1:
+            return;
+
+        case 0:
+            execvp(argumentos[0], argumentos);
+            return;
+
+        default:
+            while (wait(&status) != pid);
+            return;
+    }
+}
+
+void glk_get_screen_size(glui32 *width, glui32 *height)
+{
+    GdkScreen *screen = gdk_screen_get_default();
+    glui32 wid, hgt;
+
+    wid = gdk_screen_get_width(screen);
+    hgt = gdk_screen_get_height(screen);
+
+    if (width)
+        *width = wid;
+    if (height)
+        *height = hgt;
 }
 
 void glk_request_timer_events(glui32 millisecs)
@@ -154,6 +191,7 @@ void winchoosefile(char *prompt, char *buf, int len, int filter, GtkFileChooserA
         strcpy(buf, "");
 
     curdir = gtk_file_chooser_get_current_folder(GTK_FILE_CHOOSER(filedlog));
+
     if (curdir != NULL && strlen(curdir) < sizeof(filepath))
     {
         strcpy(filepath, curdir);
@@ -351,9 +389,10 @@ static void onexpose(GtkWidget *widget, GdkEventExpose *event, void *data)
 
 static void onbuttondown(GtkWidget *widget, GdkEventButton *event, void *data)
 {
-    if (event->button == 1)
+    if (event->button == 1 && pulsado_release == TRUE) {
+        pulsado_release = FALSE;
         gli_input_handle_click(event->x, event->y);
-    else if (event->button == 2)
+    } else if (event->button == 2)
         winclipreceive(PRIMARY);
 }
 
@@ -361,6 +400,7 @@ static void onbuttonup(GtkWidget *widget, GdkEventButton *event, void *data)
 {
     if (event->button == 1)
     {
+        pulsado_release = TRUE;
         gli_copyselect = FALSE;
         gdk_window_set_cursor((GTK_WIDGET(widget)->window), NULL);
         winclipsend(PRIMARY);
@@ -448,6 +488,7 @@ static void onkeydown(GtkWidget *widget, GdkEventKey *event, void *data)
 
         switch (key)
         {
+            case GDK_KP_Enter:
             case GDK_Return: gli_input_handle_key(keycode_Return); break;
             case GDK_BackSpace: gli_input_handle_key(keycode_Delete); break;
             case GDK_Delete: gli_input_handle_key(keycode_Erase); break;
@@ -532,6 +573,7 @@ void winopen(void)
     defh = gli_wmarginy * 2 + gli_cellh * gli_rows;
 
     frame = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+
     GTK_WIDGET_SET_FLAGS(frame, GTK_CAN_FOCUS);
     gtk_widget_set_events(frame, GDK_BUTTON_PRESS_MASK
                                | GDK_BUTTON_RELEASE_MASK
@@ -571,6 +613,9 @@ void winopen(void)
         GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE
         );
     gtk_window_set_default_size(GTK_WINDOW(frame), defw, defh);
+    gtk_window_set_resizable(GTK_WINDOW(frame), FALSE);
+    gtk_window_set_decorated(GTK_WINDOW(frame), FALSE);
+    gtk_window_fullscreen(GTK_WINDOW(frame));
 
     gtk_widget_show(canvas);
     gtk_widget_show(frame);

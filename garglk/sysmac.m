@@ -179,6 +179,50 @@ static pid_t processID = 0;
 
 static int gli_refresh_needed = TRUE;
 static int gli_window_hidden = FALSE;
+static int switch_handler = TRUE;
+
+#define MaxBuffer 1024
+
+void glk_mplayer(char *video)
+{
+    char cwd[MaxBuffer];
+    char cmd[MaxBuffer];
+    char *s;
+    int pid, status;
+
+    s = getcwd(cwd, sizeof cwd);
+    if (!s) return;
+
+    // Los vídeos y el ejecutable de mplayer2 (y el lib/)
+    // van en Resources/
+    strcpy(cmd, cwd);
+    strcat(cwd, "/mplayer2");
+    strcat(cmd, "/");
+    strcat(cmd, video);
+
+    pid = fork();
+
+    switch (pid) {
+        case -1:
+            return;
+
+        case 0:
+            execlp(cwd, cwd, "-fs", "-nofontconfig", cmd, NULL);
+            return;
+
+        default:
+            while (wait(&status) != pid);
+            return;
+    }
+}
+
+void glk_get_screen_size(glui32 *width, glui32 *height)
+{
+    if (width)
+        *width = (glui32) [[NSScreen mainScreen] frame].size.width;
+    if (height)
+        *height = (glui32) [[NSScreen mainScreen] frame].size.height;
+}
 
 void glk_request_timer_events(glui32 millisecs)
 {
@@ -380,7 +424,8 @@ void winmach(CFMachPortRef port, void *msg, CFIndex size, void *info)
     switch (hdr->msgh_id)
     {
         case SIGUSR1:
-            gli_event_waiting = true;
+            switch_handler = TRUE;
+            gli_event_waiting = TRUE;
             break;
 
         default:
@@ -390,8 +435,9 @@ void winmach(CFMachPortRef port, void *msg, CFIndex size, void *info)
 
 void winhandler(int signal)
 {
-    if (signal == SIGUSR1 && gli_mach_allowed)
+    if (signal == SIGUSR1 && switch_handler == TRUE) // && gli_mach_allowed)
     {
+        switch_handler = FALSE;
         mach_msg_header_t header;
         header.msgh_bits        = MACH_MSGH_BITS(MACH_MSG_TYPE_MAKE_SEND, 0);
         header.msgh_size        = sizeof(header);
@@ -402,6 +448,8 @@ void winhandler(int signal)
 
         mach_msg_send(&header);
     }
+
+//   gli_event_waiting = TRUE;
 
     if (signal == SIGUSR2)
         gli_window_alive = FALSE;
@@ -720,8 +768,10 @@ void winloop(void)
 {
     NSEvent * evt = NULL;
 
+    gli_mach_allowed = TRUE;
     if (gli_refresh_needed)
         winrefresh();
+    gli_mach_allowed = FALSE;
 
     if (gli_event_waiting)
         evt = [gargoyle getWindowEvent: processID];
@@ -736,8 +786,10 @@ void winpoll(void)
 
     do
     {
+        gli_mach_allowed = TRUE;
         if (gli_refresh_needed)
             winrefresh();
+        gli_mach_allowed = FALSE;
 
         if (gli_event_waiting)
             evt = [gargoyle getWindowEvent: processID];

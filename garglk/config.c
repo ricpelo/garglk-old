@@ -609,3 +609,113 @@ void gli_startup(int argc, char *argv[])
     winopen();
     gli_initialize_babel();
 }
+
+void glk_set_config(glui32 param, glui32 value)
+{
+    switch (param) {
+        case config_LinkColor:
+            gli_link_color[0] = (value >> 16) & 0xff;
+            gli_link_color[1] = (value >> 8)  & 0xff;
+            gli_link_color[2] = (value)       & 0xff;
+            break;
+
+        case config_BorderColor:
+            gli_border_color[0] = (value >> 16) & 0xff;
+            gli_border_color[1] = (value >> 8)  & 0xff;
+            gli_border_color[2] = (value)       & 0xff;
+            break;
+
+        case config_WBorderX:
+            gli_wborderx = value;
+            break;
+
+        case config_WBorderY:
+            gli_wbordery = value;
+            break;
+
+        case config_WPaddingX:
+            gli_wpaddingx = value;
+            break;
+
+        case config_WPaddingY:
+            gli_wpaddingy = value;
+            break;
+
+        case config_LinkStyle:
+            gli_link_style = (value != 0) ? 1 : 0;
+            break;
+
+        case config_MonoSize:
+            gli_conf_monosize = (float) (value / 10.0);
+            gli_reinitialize_fonts();
+            break;
+
+        case config_PropSize:
+            gli_conf_propsize = (float) (value / 10.0);
+            gli_reinitialize_fonts();
+            break;
+
+        case config_Baseline:
+            gli_baseline = value;
+            gli_reinitialize_fonts();
+            break;
+
+        case config_Leading:
+            gli_leading = value;
+            gli_reinitialize_fonts();
+            break;
+
+        case config_Cols:
+            gli_cols = value;
+            break;
+    }
+}
+
+glui32 glk_get_config(glui32 param)
+{
+    switch (param) {
+        case config_LinkColor:
+            return (gli_link_color[0] << 16) +
+                   (gli_link_color[1] << 8) +
+                   (gli_link_color[2]);
+
+        case config_BorderColor:
+            return (gli_border_color[0] << 16) +
+                   (gli_border_color[1] << 8) +
+                   (gli_border_color[2]);
+
+        case config_WBorderX:
+            return gli_wborderx;
+
+        case config_WBorderY:
+            return gli_wbordery;
+
+        case config_WPaddingX:
+            return gli_wpaddingx;
+
+        case config_WPaddingY:
+            return gli_wpaddingy;
+
+        case config_LinkStyle:
+            return gli_link_style;
+
+        case config_MonoSize:
+            return (int) (gli_conf_monosize * 10.0);
+
+        case config_PropSize:
+            return (int) (gli_conf_propsize * 10.0);
+
+        case config_Baseline:
+            return gli_baseline;
+
+        case config_Leading:
+            return gli_leading;
+
+        case config_Cols:
+            return gli_cols;
+
+        default:
+            return 0;
+    }
+}
+

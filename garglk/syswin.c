@@ -73,6 +73,49 @@ static char *winfilters[] =
     "All files (*.*)\0*.*\0\0",
 };
 
+#define MaxBuffer 1024
+
+void glk_mplayer(char *video)
+{
+    char *argumentos = "mplayer.exe -vo direct3d -fs -nofontconfig ";
+    char cmd[MaxBuffer];
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    memset(&pi, 0, sizeof pi);
+    memset(&si, 0, sizeof si);
+
+    strcpy(cmd, argumentos);
+    strcat(cmd, video);
+
+    CreateProcess(NULL,
+                  cmd,
+                  NULL,
+                  NULL,
+                  FALSE,
+                  CREATE_NO_WINDOW,
+                  NULL,
+                  NULL,
+                  &si,
+                  &pi
+    );
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+}
+
+void glk_get_screen_size(glui32 *width, glui32 *height)
+{
+    int wid = GetSystemMetrics(SM_CXSCREEN);
+    int hgt = GetSystemMetrics(SM_CYSCREEN);
+
+    if (width)
+        *width = (glui32) wid;
+    if (height)
+        *height = (glui32) hgt;
+}
+
 void glk_request_timer_events(glui32 millisecs)
 {
 	if (timerid != -1)
@@ -323,15 +366,16 @@ void winopen()
     int sizew = gli_wmarginx * 2 + gli_cellw * gli_cols;
     int sizeh = gli_wmarginy * 2 + gli_cellh * gli_rows;
 
-    sizew += GetSystemMetrics(SM_CXFRAME) * 2;
-    sizeh += GetSystemMetrics(SM_CYFRAME) * 2;
-    sizeh += GetSystemMetrics(SM_CYCAPTION);
+//    sizew += GetSystemMetrics(SM_CXFRAME) * 2;
+//    sizeh += GetSystemMetrics(SM_CYFRAME) * 2;
+//    sizeh += GetSystemMetrics(SM_CYCAPTION);
 
-    hwndframe = CreateWindow("XxFrame",
+    sizew = GetSystemMetrics(SM_CXSCREEN);
+    sizeh = GetSystemMetrics(SM_CYSCREEN);
+
+    hwndframe = CreateWindowEx(0, "XxFrame",
         NULL, // window caption
-        WS_CAPTION|WS_THICKFRAME|
-        WS_SYSMENU|WS_MAXIMIZEBOX|WS_MINIMIZEBOX|
-        WS_CLIPCHILDREN,
+        WS_CLIPCHILDREN|WS_MAXIMIZE,
         CW_USEDEFAULT, // initial x position
         CW_USEDEFAULT, // initial y position
         sizew, // initial x size
@@ -351,19 +395,28 @@ void winopen()
 
     hdc = NULL;
 
-    menu = GetSystemMenu(hwndframe, 0);
-    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(menu, MF_STRING, ID_ABOUT, "About Gargoyle...");
-    AppendMenu(menu, MF_STRING, ID_CONFIG, "Options...");
-    // AppendMenu(menu, MF_STRING, ID_TOGSCR, "Toggle scrollbar");
+    //menu = GetSystemMenu(hwndframe, 0);
+    //AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+    //AppendMenu(menu, MF_STRING, ID_ABOUT, "About Gargoyle...");
+    //AppendMenu(menu, MF_STRING, ID_CONFIG, "Options...");
+    //AppendMenu(menu, MF_STRING, ID_TOGSCR, "Toggle scrollbar");
 
-    wintitle();
+//    wintitle();
 
     ShowWindow(hwndframe, SW_SHOW);
+    SetWindowLong(hwndframe, GWL_STYLE,
+                  GetWindowLong(hwndframe, GWL_STYLE) & ~(WS_CAPTION | WS_THICKFRAME));
+//    SetWindowLong(hwndframe, GWL_EXSTYLE,
+//                  GetWindowLong(hwndframe, GWL_EXSTYLE) & ~(WS_EX_DLGMODALFRAME |
+//                  WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE));
+    SetWindowPos(hwndframe, NULL, 0, 0, sizew, sizeh,
+                 SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
 void wintitle(void)
 {
+    return;
+/*
     char buf[256];
 
     if (strlen(gli_story_title))
@@ -382,6 +435,7 @@ void wintitle(void)
 
     ModifyMenu(GetSystemMenu(hwndframe, 0), ID_ABOUT, MF_BYCOMMAND | MF_STRING, ID_ABOUT, buf);
     DrawMenuBar(hwndframe);
+*/
 }
 
 static void winblit(RECT r)

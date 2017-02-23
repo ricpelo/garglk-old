@@ -153,9 +153,15 @@ char *winfilters[] =
                    fileFilter: (unsigned int) filter;
 - (pid_t) retrieveID;
 - (void) quit;
+- (BOOL) canBecomeKeyWindow;
 @end
 
 @implementation GargoyleWindow
+
+- (BOOL) canBecomeKeyWindow
+{
+    return YES;
+}
 
 - (id) initWithContentRect: (NSRect) contentRect
                  styleMask: (unsigned int) windowStyle
@@ -485,7 +491,24 @@ char *winfilters[] =
     if (!(processID > 0))
         return NO;
 
-    unsigned int style = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask;
+    NSApplicationPresentationOptions options = NSApplicationPresentationHideDock + NSApplicationPresentationHideMenuBar;
+    [NSApp setPresentationOptions: options];
+
+    unsigned int style = 0; /* NSTitledWindowMask | NSClosableWindowMask; */
+
+    NSRect screenRect;
+    NSArray *screenArray = [NSScreen screens];
+    unsigned screenCount = [screenArray count];
+    unsigned index  = 0;
+
+    for (index; index < screenCount; index++)
+    {
+        NSScreen *screen = [screenArray objectAtIndex: index];
+        screenRect = [screen visibleFrame];
+    }
+
+    width = screenRect.size.width;
+    height = screenRect.size.height;
 
     /* set up the window */
     GargoyleWindow * window = [[GargoyleWindow alloc] initWithContentRect: NSMakeRect(0,0, width, height)
@@ -499,6 +522,7 @@ char *winfilters[] =
     [window setReleasedWhenClosed: YES];
     [window setDelegate: self];
     [windows setObject: window forKey: [NSString stringWithFormat: @"%04x", processID]];
+    [NSApp activateIgnoringOtherApps: YES];
 
     return ([window isVisible]);
 }
@@ -618,6 +642,7 @@ char *winfilters[] =
         [window performClose:self];
     }
 
+    [NSApp terminate: nil];
 }
 
 - (NSString *) openWindowDialog: (pid_t) processID

@@ -30,6 +30,8 @@
 #define MIN(a,b) (a < b ? a : b)
 #define MAX(a,b) (a > b ? a : b)
 
+#define countof(x) (sizeof x / sizeof *x)
+
 /* how many pixels we add to left/right margins */
 #define SLOP (2 * GLI_SUBPIX)
 
@@ -39,6 +41,9 @@ static void
 put_text_uni(window_textbuffer_t *dwin, glui32 *buf, int len, int pos, int oldlen);
 static glui32
 put_picture(window_textbuffer_t *dwin, picture_t *pic, glui32 align, glui32 linkval);
+
+static int hacer_reflow = FALSE;
+static glui32 menuhyperlink = 0;
 
 static void touch(window_textbuffer_t *dwin, int line)
 {
@@ -300,7 +305,8 @@ void win_textbuffer_rearrange(window_t *win, rect_t *box)
     if (newwid != dwin->width)
     {
         dwin->width = newwid;
-        reflow(win);
+        if (hacer_reflow == TRUE)
+            reflow(win);
     }
 
     if (newhgt != dwin->height)
@@ -1176,6 +1182,24 @@ void win_textbuffer_clear(window_t *win)
 //            gli_window_color);
 }
 
+void glk_window_noscroll(window_t *win)
+{
+    window_textbuffer_t *dwin = win->data;
+
+    dwin->lastseen = 0;
+    dwin->scrollpos = 0;
+}
+
+void glk_set_reflow(glui32 val)
+{
+    hacer_reflow = (val != 0) ? TRUE : FALSE;
+}
+
+glui32 glk_get_reflow(void)
+{
+    return (glui32) hacer_reflow;
+}
+
 /* Prepare the window for line input. */
 void win_textbuffer_init_line(window_t *win, char *buf, int maxlen, int initlen)
 {
@@ -1317,8 +1341,8 @@ void win_textbuffer_cancel_line(window_t *win, event_t *ev)
         for (ix=0; ix<len; ix++)
         {
             glui32 ch = dwin->chars[dwin->infence+ix];
-            if (ch > 0xff)
-                ch = '?';
+/*            if (ch > 0xff)
+                  ch = '?'; */
             ((char *)inbuf)[ix] = (char)ch;
         }
     }
@@ -1345,15 +1369,15 @@ void win_textbuffer_cancel_line(window_t *win, event_t *ev)
     dwin->inbuf = NULL;
     dwin->inmax = 0;
 
-    if (dwin->echo_line_input)
+/*    if (dwin->echo_line_input)
     {
         win_textbuffer_putchar_uni(win, '\n');
     }
     else
-    {
+    { */
         dwin->numchars = dwin->infence;
         touch(dwin, 0);
-    }
+/*    } */
 
     if (gli_unregister_arr)
         (*gli_unregister_arr)(inbuf, inmax, unicode ? "&+#!Iu" : "&+#!Cn", inarrayrock);
@@ -1530,8 +1554,8 @@ static void acceptline(window_t *win, glui32 keycode)
         for (ix=0; ix<len; ix++)
         {
             glui32 ch = dwin->chars[dwin->infence+ix];
-            if (ch > 0xff)
-                ch = '?';
+/*            if (ch > 0xff)
+                  ch = '?'; */
             ((char *)inbuf)[ix] = (char)ch;
         }
     }
@@ -1693,12 +1717,98 @@ void gcmd_buffer_accept_readline(window_t *win, glui32 arg)
             break;
 
         case keycode_Escape:
+            if (menuhyperlink != 0)
+                gli_event_store(evtype_Hyperlink, win, menuhyperlink, 0);
             if (dwin->infence >= dwin->numchars)
                 return;
             put_text_uni(dwin, NULL, 0, dwin->infence, dwin->numchars - dwin->infence);
             break;
 
             /* Regular keys */
+            
+        case keycode_Tab:
+            {
+                int i, n, z;
+                glui32 c;
+
+                // Step backward to find last space on input line
+                for (i = dwin->incurs - 1; i >= 0; i--)
+                {
+                    if (dwin->chars[i] == 0x20)
+                       break;
+                }
+
+                // Step forward to extract last word
+                glui32 word[dwin->incurs - i];
+
+                for (n = i; n < dwin->incurs; n++) {
+                    // Convert to lowercase
+                    c = dwin->chars[n];
+                    if ((c >= 'A' && c <= 'Z') ||
+//                       c == 'Á' || c == 'É' || c == 'Í' || c == 'Ó' || c == 'Ú' ||
+//                       c == 'Ñ' || c == 'Ç')
+                         c == 0xc1 || c == 0xc9 || c == 0xcd || c == 0xd3 || c == 0xda ||
+                         c == 0xd1 || c == 0xc7)
+                        c += 32;
+
+                    word[n - i] = c;
+                }
+
+                // Loop through lines of prv output
+                for (i = 1; i <= dwin->scrollmax; i++)
+                {
+                    // Step backwards through char of the line
+                    for (n = dwin->lines[i].len - 1; n >= 0; n--)
+               	    {
+                        // Step forward again, break if char doesn't match word
+               	        for (z = 0; z < countof(word); z++)
+               	        {
+                            // Convert to lowercase
+                       	    c = dwin->lines[i].chars[n + z];
+
+                       	    if ((c >= 'A' && c <= 'Z') ||
+//                                 c == 'Á' || c == 'É' || c == 'Í' || c == 'Ó' || c == 'Ú' ||
+//                                 c == 'Ñ' || c == 'Ç')
+                                 c == 0xc1 || c == 0xc9 || c == 0xcd || c == 0xd3 || c == 0xda ||
+                                 c == 0xd1 || c == 0xc7)
+                       	        c += 32;
+
+                       	    if (c != word[z])
+                       	        break;
+ 
+                       	    if (z == countof(word) - 1)
+                                if (n < dwin->lines[i].len - 1)
+                                    if (dwin->lines[i].chars[n + z + 1] != 0x20)
+                                        goto End; // Match found, break all three loops
+                       	}
+               	    }
+                }
+
+                break;
+
+                End:
+                
+                /* Call input event for each char in tab complete
+                 i is the line, n is the first char of match, z is length of match,
+                 so n+z is end of match and start of tab complete */
+                n++;
+                while ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+//                       c == 'Á' || c == 'á' || c == 'É' || c == 'é' || c == 'Í' || c == 'í' ||
+//                       c == 'Ó' || c == 'ó' || c == 'Ú' || c == 'ú' || c == 'Ñ' || c == 'ñ' ||
+//                       c == 'Ç' || c == 'ç')
+                        c == 0xc1 || c == 0xe1 || c == 0xc9 || c == 0xe9 || c == 0xcd || c == 0xed ||
+                        c == 0xd3 || c == 0xf3 || c == 0xda || c == 0xfa || c == 0xd1 || c == 0xf1 ||
+                        c == 0xc7 || c == 0xe7)
+
+                {
+                    put_text_uni(dwin, &dwin->lines[i].chars[n + z], 1, dwin->incurs, 0);
+                    n++;
+                    c = dwin->lines[i].chars[n + z];
+                }
+                glui32 space = 0x20;
+                put_text_uni(dwin, &space, 1, dwin->incurs, 0);
+            }
+            break;
 
         case keycode_Return:
             acceptline(win, arg);
@@ -1836,3 +1946,9 @@ void win_textbuffer_click(window_textbuffer_t *dwin, int sx, int sy)
         gli_start_selection(sx, sy);
     }
 }
+
+void glk_menu_hyperlink_setup(glui32 link)
+{
+    menuhyperlink = link;
+}
+

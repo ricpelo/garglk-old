@@ -316,6 +316,20 @@ static gidispatch_function_t function_table[] = {
     { 0x016E, glk_date_to_simple_time_utc, "date_to_simple_time_utc" },
     { 0x016F, glk_date_to_simple_time_local, "date_to_simple_time_local" },
 #endif /* GLK_MODULE_DATETIME */
+    { 0xFFFE, glk_incr_fontsize, "incr_fontsize" },
+    { 0xFFFD, glk_decr_fontsize, "decr_fontsize" },
+    { 0xFFFC, glk_window_stylehint_set, "window_stylehint_set" },
+    { 0xFFFB, glk_window_stylehint_get, "window_stylehint_get" },
+    { 0xFFFA, glk_set_config, "set_config" },
+    { 0xFFF9, glk_get_config, "get_config" },
+    { 0xFFF8, glk_window_get_cursor, "window_get_cursor" },
+    { 0xFFF7, glk_window_get_char, "window_get_char" },
+    { 0xFFF6, glk_window_noscroll, "window_noscroll" },
+    { 0xFFF5, glk_get_screen_size, "get_screen_size" },
+    { 0xFFF4, glk_set_reflow, "set_reflow" },
+    { 0xFFF3, glk_get_reflow, "get_reflow" },
+    { 0xFFF2, glk_mplayer, "mplayer" },
+    { 0xFFF1, glk_menu_hyperlink_setup, "menu_hyperlink_setup" }
 };
 
 glui32 gidispatch_count_classes()
@@ -653,6 +667,34 @@ char *gidispatch_prototype(glui32 funcnum)
         case 0x016F: /* date_to_simple_time_local */
             return "3>+[8IsIsIsIsIsIsIsIs]Iu:Is";
 #endif /* GLK_MODULE_DATETIME */
+        case 0xFFFE: /* incr_fontsize */
+            return "0:";
+        case 0xFFFD: /* decr_fontsize */
+            return "0:";
+        case 0xFFFC: /* window_stylehint_set */
+            return "4QaIuIuIs:";
+        case 0xFFFB: /* window_stylehint_get */
+            return "4QaIuIu:Is";
+        case 0xFFFA: /* set_config */
+            return "2IuIu:";
+        case 0xFFF9: /* get_config */
+            return "2Iu:Iu";
+        case 0xFFF8: /* window_get_cursor */
+            return "3Qa<Iu<Iu:";
+        case 0xFFF7: /* window_get_char */
+            return "4QaIuIu:Iu";
+        case 0xFFF6: /* window_noscroll */
+            return "1Qa:";
+        case 0xFFF5: /* get_screen_size */
+            return "2<Iu<Iu:";
+        case 0xFFF4: /* set_reflow */
+            return "1Iu:";
+        case 0xFFF3: /* get_reflow */
+            return "1:Iu";
+        case 0xFFF2: /* mplayer */
+            return "1S:";
+        case 0xFFF1: /* menu_hyperlink_setup */
+            return "1Iu:";
 
         default:
             return NULL;
@@ -1471,6 +1513,105 @@ void gidispatch_call(glui32 funcnum, glui32 numargs, gluniversal_t *arglist)
             }
             break;
 #endif /* GLK_MODULE_DATETIME */
+
+        case 0xFFFE: /* incr_fontsize */
+            glk_incr_fontsize();
+            break;
+
+        case 0xFFFD: /* decr_fontsize */
+            glk_decr_fontsize();
+            break;
+
+        case 0xFFFC: /* window_stylehint_set */
+            glk_window_stylehint_set(arglist[0].opaqueref, arglist[1].uint,
+                                     arglist[2].uint, arglist[3].sint);
+            break;
+
+        case 0xFFFB: /* window_stylehint_get */
+            arglist[4].sint = glk_window_stylehint_get(arglist[0].opaqueref, arglist[1].uint,
+                                                       arglist[2].uint);
+            break;
+
+        case 0xFFFA: /* set_config */
+            glk_set_config(arglist[0].uint, arglist[1].uint);
+            break;
+
+        case 0xFFF9: /* get_config */
+            arglist[2].uint = glk_get_config(arglist[0].uint);
+            break;
+
+        case 0xFFF8: /* window_get_cursor */
+            {
+                int ix = 1;
+                glui32 *ptr1, *ptr2;
+                if (!arglist[ix].ptrflag) {
+                    ptr1 = NULL;
+                }
+                else {
+                    ix++;
+                    ptr1 = &(arglist[ix].uint);
+                }
+                ix++;
+                if (!arglist[ix].ptrflag) {
+                    ptr2 = NULL;
+                }
+                else {
+                    ix++;
+                    ptr2 = &(arglist[ix].uint);
+                }
+                ix++;
+                glk_window_get_cursor(arglist[0].opaqueref, ptr1, ptr2);
+            }
+            break;
+
+        case 0xFFF7: /* window_get_char */
+            arglist[4].uint = glk_window_get_char(arglist[0].opaqueref, arglist[1].uint,
+                                                  arglist[2].uint);
+            break;
+
+        case 0xFFF6: /* window_noscroll */
+            glk_window_noscroll(arglist[0].opaqueref);
+            break;
+
+        case 0xFFF5: /* get_screen_size */
+            {
+                int ix = 0;
+                glui32 *ptr1, *ptr2;
+                if (!arglist[ix].ptrflag) {
+                    ptr1 = NULL;
+                }
+                else {
+                    ix++;
+                    ptr1 = &(arglist[ix].uint);
+                }
+                ix++;
+                if (!arglist[ix].ptrflag) {
+                    ptr2 = NULL;
+                }
+                else {
+                    ix++;
+                    ptr2 = &(arglist[ix].uint);
+                }
+                ix++;
+                glk_get_screen_size(ptr1, ptr2);
+            }
+            break;
+
+        case 0xFFF4: /* set_reflow */
+            glk_set_reflow(arglist[0].uint);
+            break;
+
+        case 0xFFF3: /* get_reflow */
+            arglist[1].uint = glk_get_reflow();
+            break;
+
+        case 0xFFF2: /* mplayer */
+            glk_mplayer(arglist[0].charstr);
+            break;
+
+        case 0xFFF1: /* menu_hyperlink_setup */
+            glk_menu_hyperlink_setup(arglist[0].uint);
+            break;
 
         default:
             /* do nothing */
